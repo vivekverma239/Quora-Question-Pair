@@ -4,9 +4,9 @@ import fire
 import numpy as np
 
 from data_loader import _load_quora_data, load_embedding
-from eval import f1
+from evaluation import f1
 # from models import get_model_v1 as get_model
-from models import get_model_v2 as get_model
+from models import get_model_v3 as get_model
 
 
 

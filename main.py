@@ -1,3 +1,6 @@
+"""
+    Main module for training Quora Duplication Question Detection Model
+"""
 import os
 import pickle
 import fire
@@ -41,7 +44,7 @@ def main(data_file,
         print("Loading Pickled Data...")
         word_index, train_question1, train_question2, y_train,\
         valid_question1, valid_question2, y_valid,\
-        test_question1, test_question2, y_test = pickle.load(open(data_pickle_file,'rb'))
+        test_question1, test_question2, y_test = pickle.load(open(data_pickle_file, 'rb'))
 
     else:
         # Load and process all the data
@@ -60,11 +63,11 @@ def main(data_file,
                      y_train, valid_question1, valid_question2,
                      y_valid, test_question1, test_question2,\
                      y_test],
-                     open(data_pickle_file,"wb")
-                    )
+                     open(data_pickle_file, "wb")
+                   )
 
     # Limit word Vocab to Max Vocab
-    word_index = {k:v for k,v in word_index.items() if v < max_vocab_size}
+    word_index = {k:v for k, v in word_index.items() if v < max_vocab_size}
 
     print(len(word_index))
     # Case to handle when len(word_index) < max_vocab_size
@@ -91,7 +94,7 @@ def main(data_file,
 
     model.compile(optimizer='adam', loss="binary_crossentropy", metrics=[f1, 'acc'])
 
-    model.fit([train_question1,train_question2], y_train,\
+    model.fit([train_question1, train_question2], y_train,\
               epochs=epochs,
               batch_size=64,
               validation_data=([valid_question1, valid_question2], y_valid))

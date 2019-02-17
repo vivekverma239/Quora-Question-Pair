@@ -24,12 +24,14 @@ def _load_quora_data(data_file,\
     data = pd.read_csv(data_file, sep='\t')
 
     # Shuffle and split dataframe
-    np.random.seed(100)
+    np.random.seed(seed)
     data.iloc[np.random.permutation(len(data))]
 
-    train_df, valid_df, test_df = data.iloc[:-(validation_split+test_split)], data.iloc[-(validation_split+test_split):-test_split], data.iloc[-test_split:, :]
+    train_df, valid_df, test_df = data.iloc[:-(validation_split+test_split)],\
+                                  data.iloc[-(validation_split+test_split):-test_split],\
+                                  data.iloc[-test_split:, :]
 
-    convert_list_to_str = lambda x : list(map(str,x))
+    convert_list_to_str = lambda x: list(map(str,x))
     train_question1 = convert_list_to_str(train_df['question1'].tolist())
     train_question2 = convert_list_to_str(train_df['question2'].tolist())
     y_train = train_df['is_duplicate']
@@ -84,15 +86,15 @@ def load_embedding(embedding_file_path, word_index, embedding_dim):
     """
     # Create a Numpy Placeholder for Embedding
     max_features = len(word_index)+1
-    embedding_weights = np.random.random([max_features,embedding_dim])
+    embedding_weights = np.random.random([max_features, embedding_dim])
     count = 0
     glove_file = open(embedding_file_path)
     for line in glove_file:
-      word, vector = line.split(' ')[0], line.split(' ')[1:]
-      if word in word_index and word_index[word] <= max_features:
-        count += 1
-        vector = list(map(float,vector))
-        embedding_weights[word_index[word]] = [float(i) for i in vector]
+        word, vector = line.split(' ')[0], line.split(' ')[1:]
+        if word in word_index and word_index[word] <= max_features:
+            count += 1
+            vector = list(map(float, vector))
+            embedding_weights[word_index[word]] = [float(i) for i in vector]
 
     print('Fraction found in glove {}'.format(count/len(embedding_weights)))
     return embedding_weights

@@ -8,8 +8,9 @@ import numpy as np
 
 from data_loader import _load_quora_data, load_embedding
 from evaluation import f1
-# from models import get_model_v1 as get_model
-from models import get_model_v3 as get_model
+from models import get_model
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+
 
 
 
@@ -24,6 +25,9 @@ def main(data_file,
          test_split=5000, # Number of Pairs in test set
          data_pickle_file='data/data.pkl',
          use_pickled_data=True,
+         data_aug=False,
+         model_save_filepath='data/model.h5',
+         processor_config_filepath='data/processor.pkl'
          ):
     """
         Function for model training
@@ -55,7 +59,8 @@ def main(data_file,
                                                     max_length=max_length,
                                                     max_vocab_size=max_vocab_size,
                                                     validation_split=validation_split,
-                                                    test_split=test_split
+                                                    test_split=test_split,
+                                                    processor_config_filepath=processor_config_filepath
                                                     )
 
         pickle.dump(
@@ -69,7 +74,6 @@ def main(data_file,
     # Limit word Vocab to Max Vocab
     word_index = {k:v for k, v in word_index.items() if v < max_vocab_size}
 
-    print(len(word_index))
     # Case to handle when len(word_index) < max_vocab_size
     max_vocab_size = len(word_index)+1
 
@@ -82,22 +86,24 @@ def main(data_file,
     model = get_model(max_length=max_length,
                       max_vocab_size=max_vocab_size,
                       embedding_dim=300,
-                      embedding_weight=embedding_weight,
-                      pairwise_loss=True)
+                      embedding_weight=embedding_weight)
 
-    aug = False
-    if aug:
+    if data_aug:
         train_question_aug1 = np.concatenate([train_question1, train_question2], axis=0)
         train_question_aug2 = np.concatenate([train_question2, train_question1], axis=0)
         y_train = np.concatenate([y_train, y_train], axis=0)
         train_question1, train_question2 = train_question_aug1, train_question_aug2
+
+    callbacks =  [EarlyStopping(monitor='val_acc', patience=2),
+                  ModelCheckpoint(model_save_filepath, monitor='val_acc', save_best_only=True)]
 
     model.compile(optimizer='adam', loss="binary_crossentropy", metrics=[f1, 'acc'])
 
     model.fit([train_question1, train_question2], y_train,\
               epochs=epochs,
               batch_size=64,
-              validation_data=([valid_question1, valid_question2], y_valid))
+              validation_data=([valid_question1, valid_question2], y_valid),
+              callbacks=callbacks)
 
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 import random
 import pandas as pd
 import numpy as np
+import pickle
 from tensorflow.keras.preprocessing import text, sequence
 
 
@@ -9,16 +10,20 @@ def _load_quora_data(data_file,\
                     max_vocab_size=30000,
                     validation_split=5000,
                     test_split=5000,
-                    seed=100):
+                    seed=100,
+                    processor_config_filepath='preprocessor.pkl'):
     """
-        Load Microsoft AI Challenge Dataset from TSV file
+        Load Quora Dataset from TSV file
 
         :params:
-            - tsv_file: TSV data file provided by Microsoft
-            - max_query_length: Max Sequence Length of Query, Queries data will be
+            - data_file: TSV data file provided by Quora
+            - max_length: Max Length of Questions, Questions data will be
                                 truncated upto this length
-            - max_response_length: Max Reponse Length, Responses will be truncated
-                                    upto this length
+            - validation_split: How much to sample for validation
+            - test_split: How much to sample for testing
+            - seed: Random seed
+            - processor_config_filepath: Where to save tokenizer etc 
+
     """
     # Read data file and assign column names
     data = pd.read_csv(data_file, sep='\t')
@@ -45,7 +50,6 @@ def _load_quora_data(data_file,\
     y_test = test_df['is_duplicate']
 
 
-
     tokenizer = text.Tokenizer(num_words=max_vocab_size)
     tokenizer.fit_on_texts(train_question1 + train_question2 +\
                             valid_question2 + valid_question1 +\
@@ -57,7 +61,7 @@ def _load_quora_data(data_file,\
     train_question1 = sequence.pad_sequences(train_question1, maxlen=max_length)
     train_question2 = sequence.pad_sequences(train_question2, maxlen=max_length)
 
-    # Processing Validation Data
+    # Processing Validation Datahttps://www.gadgetsnow.com/mobile-phones/Huawei-P30
     valid_question1 = tokenizer.texts_to_sequences(valid_question1)
     valid_question2 = tokenizer.texts_to_sequences(valid_question2)
     valid_question1 = sequence.pad_sequences(valid_question1, maxlen=max_length)
@@ -68,6 +72,12 @@ def _load_quora_data(data_file,\
     test_question2 = tokenizer.texts_to_sequences(test_question2)
     test_question1 = sequence.pad_sequences(test_question1, maxlen=max_length)
     test_question2 = sequence.pad_sequences(test_question2, maxlen=max_length)
+
+    config = {
+                'max_length':max_length,
+                'tokenizer': tokenizer
+             }
+    pickle.dump(config, open(processor_config_filepath, "wb"))
 
     return tokenizer.word_index, train_question1, train_question2, y_train,\
                         valid_question1, valid_question2, y_valid,\

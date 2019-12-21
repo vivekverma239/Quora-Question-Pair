@@ -5,6 +5,12 @@ import pickle
 from tensorflow.keras.preprocessing import text, sequence
 
 
+def _process_data(dataframe, max_length, vocab):
+    """
+    
+    """
+
+
 def _load_quora_data(data_file,\
                     max_length=30,
                     max_vocab_size=30000,
@@ -36,6 +42,8 @@ def _load_quora_data(data_file,\
                                   data.iloc[-(validation_split+test_split):-test_split],\
                                   data.iloc[-test_split:, :]
 
+    # Save this for further testing
+    data.iloc[-test_split:, :].to_csv("test_data.csv")
     convert_list_to_str = lambda x: list(map(str,x))
     train_question1 = convert_list_to_str(train_df['question1'].tolist())
     train_question2 = convert_list_to_str(train_df['question2'].tolist())

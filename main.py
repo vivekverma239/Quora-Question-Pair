@@ -10,11 +10,33 @@ from data_loader import _load_quora_data, load_embedding
 from evaluation import f1
 from models import get_model
 from keras.callbacks import EarlyStopping, ModelCheckpoint
+from data_utils import TextProcessor
 
+def _load_and_process_data(file_path):
+    data = pd.read_csv(data_file, sep='\t')
 
+    # Shuffle and split dataframe
+    np.random.seed(seed)
+    data.iloc[np.random.permutation(len(data))]
 
-
-
+    train_df, valid_df, test_df = data.iloc[:-(validation_split+test_split)],\
+                                  data.iloc[-(validation_split+test_split):-test_split],\
+                                  data.iloc[-test_split:, :]
+    processor = TextProcessor(num_words=50000, tokenizer="nltk", max_length=30)
+    processor.fit(train_df["question1"].tolist() + train_df["question2"].tolist())
+    convert_list_to_str = lambda x: list(map(str,x))
+    train_question1 = processor.process(convert_list_to_str(train_df['question1'].tolist()))
+    train_question2 = processor.process(convert_list_to_str(train_df['question2'].tolist()))
+    y_train = train_df['is_duplicate']
+    valid_question1 = processor.process(convert_list_to_str(valid_df['question1'].tolist()))
+    valid_question2 = processor.process(convert_list_to_str(valid_df['question2'].tolist()))
+    y_valid = valid_df['is_duplicate']
+    test_question1 = processor.process(convert_list_to_str(test_df['question1'].tolist()))
+    test_question2 = processor.process(convert_list_to_str(test_df['question2'].tolist()))
+    y_test = test_df['is_duplicate']
+    return  processor.tokenizer.word_index, train_question1, train_question2, y_train,\
+                        valid_question1, valid_question2, y_valid,\
+                        test_question1, test_question2, y_test, test_df
 def main(data_file,
          epochs=20,
          max_vocab_size=50000,
@@ -48,13 +70,13 @@ def main(data_file,
         print("Loading Pickled Data...")
         word_index, train_question1, train_question2, y_train,\
         valid_question1, valid_question2, y_valid,\
-        test_question1, test_question2, y_test = pickle.load(open(data_pickle_file, 'rb'))
+        test_question1, test_question2, y_test, test_df = pickle.load(open(data_pickle_file, 'rb'))
 
     else:
         # Load and process all the data
-        word_index, train_question1, train_question2, y_train,\
+        train_question1, train_question2, y_train,\
         valid_question1, valid_question2, y_valid,\
-        test_question1, test_question2, y_test = _load_quora_data(
+        test_question1, test_question2, y_test, test_df = _load_quora_data(
                                                     data_file=data_file,
                                                     max_length=max_length,
                                                     max_vocab_size=max_vocab_size,
@@ -67,7 +89,7 @@ def main(data_file,
                      [word_index, train_question1, train_question2,
                      y_train, valid_question1, valid_question2,
                      y_valid, test_question1, test_question2,\
-                     y_test],
+                     y_test, test_df],
                      open(data_pickle_file, "wb")
                    )
 
@@ -104,7 +126,9 @@ def main(data_file,
               batch_size=64,
               validation_data=([valid_question1, valid_question2], y_valid),
               callbacks=callbacks)
-
-
+    test_pred = model.predict([test_question1, test_question2])
+    test_df["prediction"] = test_pred
+    test_df.to_csv("predictions.csv")
+    
 if __name__ == '__main__':
     fire.Fire(main)

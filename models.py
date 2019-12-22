@@ -33,8 +33,7 @@ def get_model_v1(max_length,
                           trainable=True)
     q_embed = embedding(query)
     d_embed = embedding(doc)
-    # q_embed = Dropout(rate=0.5)(q_embed)
-    # d_embed = Dropout(rate=0.5)(d_embed)
+
     rnn = Bidirectional(CuDNNLSTM(50, return_sequences=True))
 
     q_conv1 = rnn(q_embed)
@@ -44,20 +43,12 @@ def get_model_v1(max_length,
 
     cross = Match(match_type='dot')([q_conv1, d_conv1])
 
-    # z = Reshape((15, 50, 1))(cross)
-    # z = Conv2D(filters=50, kernel_size=(3, 3), padding='same', activation='relu')(z)
-    # z = Conv2D(filters=25, kernel_size=(3, 3), padding='same', activation='relu')(z)
-    # z = MaxPooling2D(pool_size=(3, 3))(z)
-    # z = Conv2D(filters=10, kernel_size=(3, 3), padding='same', activation='relu')(z)
-    # z = MaxPooling2D(pool_size=(3, 3))(z)
 
     pool1_flat = Flatten()(cross)
-    # pool1_flat = Concatenate()([q_conv1, d_conv1])
     pool1_flat_drop = Dropout(rate=0.5)(pool1_flat)
     out_ = Dense(1, activation="sigmoid")(pool1_flat_drop)
 
     model = Model(inputs=[query,doc], outputs=out_)
-    # model.compile(optimizer='adadelta', loss=rank_hinge_loss())
     return model
 
 def get_model_v2(max_length=50,
@@ -73,7 +64,7 @@ def get_model_v2(max_length=50,
 
     embedding = Embedding(max_vocab_size, embedding_dim,
                           weights=[embedding_weight] if embedding_weight is not None else None,
-                          trainable=False if embedding_weight is not None else True)
+                          trainable=True if embedding_weight is not None else True)
     q_embed = embedding(query)
     d_embed = embedding(doc)
 
@@ -182,19 +173,6 @@ def get_model_v3(max_length=60,
     diff = Lambda(lambda x: K.abs(x[0] - x[1]), output_shape=(4 * 128 + 2*32,))([mergea, mergeb])
     mul = Lambda(lambda x: x[0] * x[1], output_shape=(4 * 128 + 2*32,))([mergea, mergeb])
 
-    # # Add the magic features
-    # magic_input = Input(shape=(5,))
-    # magic_dense = BatchNormalization()(magic_input)
-    # magic_dense = Dense(64, activation='relu')(magic_dense)
-
-    # # Add the distance features (these are now TFIDF (character and word), Fuzzy matching, 
-    # # nb char 1 and 2, word mover distance and skew/kurtosis of the sentence vector)
-    # distance_input = Input(shape=(20,))
-    # distance_dense = BatchNormalization()(distance_input)
-    # distance_dense = Dense(128, activation='relu')(distance_dense)
-
-    # # Merge the Magic and distance features with the difference layer
-    # merge = concatenate([diff, mul, magic_dense, distance_dense])
     merge = Concatenate()([diff, mul])
 
 
@@ -207,8 +185,6 @@ def get_model_v3(max_length=60,
     x = BatchNormalization()(x)
     pred = Dense(1, activation='sigmoid')(x)
 
-    # model = Model(inputs=[seq1, seq2, magic_input, distance_input], outputs=pred)
     model = Model(inputs=[seq1, seq2], outputs=pred)
-    # model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['acc'])
 
     return model

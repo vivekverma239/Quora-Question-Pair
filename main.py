@@ -5,14 +5,22 @@ import os
 import pickle
 import fire
 import numpy as np
+import pandas as pd 
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
 from data_loader import _load_quora_data, load_embedding
 from evaluation import f1
-from models import get_model
-from keras.callbacks import EarlyStopping, ModelCheckpoint
+from models import  get_model_v1, get_model_v2, get_model_v3
 from data_utils import TextProcessor
 
-def _load_and_process_data(file_path):
+def _load_and_process_data(data_file, 
+                            max_length=30,
+                            max_vocab_size=50000,
+                            validation_split=5000,
+                            test_split=5000,
+                            seed=200,
+                            tokenizer_path="data/tokenizer.json"):
+                            
     data = pd.read_csv(data_file, sep='\t')
 
     # Shuffle and split dataframe
@@ -22,9 +30,12 @@ def _load_and_process_data(file_path):
     train_df, valid_df, test_df = data.iloc[:-(validation_split+test_split)],\
                                   data.iloc[-(validation_split+test_split):-test_split],\
                                   data.iloc[-test_split:, :]
-    processor = TextProcessor(num_words=50000, tokenizer="nltk", max_length=30)
-    processor.fit(train_df["question1"].tolist() + train_df["question2"].tolist())
+
+    processor = TextProcessor(num_words=max_vocab_size, tokenizer="nltk", max_length=max_length)
+    
     convert_list_to_str = lambda x: list(map(str,x))
+    processor.fit(convert_list_to_str(train_df["question1"].tolist() + train_df["question2"].tolist()))
+    processor.dump(tokenizer_path)
     train_question1 = processor.process(convert_list_to_str(train_df['question1'].tolist()))
     train_question2 = processor.process(convert_list_to_str(train_df['question2'].tolist()))
     y_train = train_df['is_duplicate']
@@ -49,7 +60,7 @@ def main(data_file,
          use_pickled_data=True,
          data_aug=False,
          model_save_filepath='data/model.h5',
-         processor_config_filepath='data/processor.pkl'
+         tokenizer_path='data/tokenizer.json'
          ):
     """
         Function for model training
@@ -74,15 +85,15 @@ def main(data_file,
 
     else:
         # Load and process all the data
-        train_question1, train_question2, y_train,\
+        word_index, train_question1, train_question2, y_train,\
         valid_question1, valid_question2, y_valid,\
-        test_question1, test_question2, y_test, test_df = _load_quora_data(
+        test_question1, test_question2, y_test, test_df = _load_and_process_data(
                                                     data_file=data_file,
                                                     max_length=max_length,
                                                     max_vocab_size=max_vocab_size,
                                                     validation_split=validation_split,
                                                     test_split=test_split,
-                                                    processor_config_filepath=processor_config_filepath
+                                                    tokenizer_path=tokenizer_path
                                                     )
 
         pickle.dump(
@@ -105,7 +116,7 @@ def main(data_file,
                                       embedding_dim)
 
     # Define the model
-    model = get_model(max_length=max_length,
+    model = get_model_v3(max_length=max_length,
                       max_vocab_size=max_vocab_size,
                       embedding_dim=300,
                       embedding_weight=embedding_weight)
@@ -129,6 +140,6 @@ def main(data_file,
     test_pred = model.predict([test_question1, test_question2])
     test_df["prediction"] = test_pred
     test_df.to_csv("predictions.csv")
-    
+
 if __name__ == '__main__':
     fire.Fire(main)

@@ -1,6 +1,7 @@
 """
     WORKS of tensorflow 1.7.0
 """
+import fire
 import tensorflow as tf
 from collections import namedtuple
 from sklearn.model_selection import train_test_split
@@ -22,7 +23,7 @@ from tensorflow.keras.layers import Input, Dense, Embedding, Concatenate, \
 
 from custom_layers import Match
 
-Example = namedtuple('Example', ('question1', 'question2', 'label'), defaults=(None, None, None))
+Example = namedtuple('Example', ('question1', 'question2', 'label'))
 
 _DEFAULT_BERT_MODEL = 'https://tfhub.dev/google/albert_base/2'
 # _DEFAULT_BERT_MODEL = "https://tfhub.dev/google/bert_cased_L-12_H-768_A-12/1"
@@ -115,7 +116,8 @@ class BertModel:
             test_features = convert_examples_to_features(self.tokenizer, test_examples, max_seq_length, is_training=True)
 
         model = self._get_model(max_seq_length, num_classes)
-        model.compile(loss='sparse_categorical_crossentropy' if num_classes > 1 else "binary_crossentropy", optimizer=tf.keras.optimizers.Adam(2e-5), metrics=['accuracy'])
+        model.compile(loss='sparse_categorical_crossentropy' if num_classes > 1 else "binary_crossentropy", 
+                        optimizer=tf.keras.optimizers.Adam(2e-5), metrics=['accuracy'])
         if is_test_data_available:
             validation_data = (test_features[:6], test_features[6])
             model.fit(train_features[:6], train_features[6], \
@@ -126,12 +128,13 @@ class BertModel:
 
 
 def main(data_file, validation_split=5000, test_split=5000):
+    # Read the dataset
     data = pd.read_csv(data_file, sep='\t')
 
     # Shuffle and split dataframe
     np.random.seed(200)
     data.iloc[np.random.permutation(len(data))]
-    data = data.iloc[:20000]
+
     train_df, valid_df, test_df = data.iloc[:-(validation_split+test_split)],\
                                   data.iloc[-(validation_split+test_split):-test_split],\
                                   data.iloc[-test_split:, :]
@@ -140,9 +143,11 @@ def main(data_file, validation_split=5000, test_split=5000):
     y = train_df["is_duplicate"].tolist()
     X_val = [valid_df["question1"].tolist(), valid_df["question2"].tolist()]
     y_val = valid_df["is_duplicate"].tolist()
+
     model = BertModel()
+
     tf.keras.backend.get_session().run(tf.global_variables_initializer())
     model.fit(X, y, num_classes=1, validation_data=(X_val, y_val), epochs=10)
 
 if __name__ == '__main__':
-    main("data/quora.txt")
+    fire.Fire(main)

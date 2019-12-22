@@ -9,7 +9,7 @@ import pandas as pd
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
 from evaluation import f1
-from models import  get_model_v1, get_model_v2, get_model_v3
+from models import  get_model
 from data_utils import TextProcessor
 
 def load_embedding(embedding_file_path, word_index, embedding_dim):
@@ -140,7 +140,7 @@ def main(data_file,
                                       embedding_dim)
 
     # Define the model
-    model = get_model_v3(max_length=max_length,
+    model = get_model(max_length=max_length,
                       max_vocab_size=max_vocab_size,
                       embedding_dim=embedding_dim,
                       embedding_weight=embedding_weight)
@@ -156,13 +156,13 @@ def main(data_file,
                   ModelCheckpoint(model_save_filepath, monitor='val_acc', save_best_only=True)]
 
     model.compile(optimizer='adam', loss="binary_crossentropy", metrics=[f1, 'acc'])
-
+    model.summary()
     model.fit([train_question1, train_question2], y_train,\
               epochs=epochs,
               batch_size=64,
               validation_data=([valid_question1, valid_question2], y_valid),
               callbacks=callbacks)
-              
+
     test_pred = model.predict([test_question1, test_question2])
     test_df["prediction"] = test_pred
     test_df.to_csv("predictions.csv")

@@ -10,98 +10,9 @@ from tensorflow.keras.layers import Input, Dense, Embedding, Concatenate, \
 
 from tensorflow.compat.v1.keras.layers import CuDNNLSTM, CuDNNGRU
 
-from custom_layers import Match
 
-CONFIG = {
-            'dropout': 0.2,
-            'hidden_size': 100,
-            'hidden_size_aggregation':100,
-            'dense_units': 50
-            }
-
-def get_model_v1(max_length,
-          max_vocab_size,
-          embedding_dim=300,
-          embedding_weight=None,
-          ):
-
-    query = Input(shape=(max_length,))
-    doc = Input(shape=(max_length,))
-
-    embedding = Embedding(max_vocab_size, 300,
-                          weights=[embedding_weight] if embedding_weight is not None else None,
-                          trainable=True)
-    q_embed = embedding(query)
-    d_embed = embedding(doc)
-
-    rnn = Bidirectional(CuDNNLSTM(50, return_sequences=True))
-
-    q_conv1 = rnn(q_embed)
-    d_conv1 = rnn(d_embed)
-    q_conv1 = Dropout(0.5)(q_conv1)
-    d_conv1 = Dropout(0.5)(d_conv1)
-
-    cross = Match(match_type='dot')([q_conv1, d_conv1])
-
-
-    pool1_flat = Flatten()(cross)
-    pool1_flat_drop = Dropout(rate=0.5)(pool1_flat)
-    out_ = Dense(1, activation="sigmoid")(pool1_flat_drop)
-
-    model = Model(inputs=[query,doc], outputs=out_)
-    return model
-
-def get_model_v2(max_length=50,
-              max_vocab_size=50000,
-              embedding_dim=300,
-              embedding_weight=None):
-    """
-        Module with dot attention and GPU Aggregation
-    """
-
-    query = Input(shape=(max_length,))
-    doc = Input(shape=(max_length,))
-
-    embedding = Embedding(max_vocab_size, embedding_dim,
-                          weights=[embedding_weight] if embedding_weight is not None else None,
-                          trainable=True if embedding_weight is not None else True)
-    q_embed = embedding(query)
-    d_embed = embedding(doc)
-
-    q_embed = Dropout(rate=CONFIG['dropout'])(q_embed)
-    d_embed = Dropout(rate=CONFIG['dropout'])(d_embed)
-
-
-    rnn = Bidirectional(CuDNNLSTM(CONFIG['hidden_size'], return_sequences=True))
-
-    q_conv1 = rnn(q_embed)
-    d_conv1 = rnn(d_embed)
-
-    cross = Match(match_type='dot')([q_conv1, d_conv1])
-
-    # Attention
-    cross = Reshape((max_length, max_length))(cross)
-    softmax_cross_doc1 = Softmax(axis=0)(cross)
-    attention_outputs = Dot(axes=[1,1])([softmax_cross_doc1,d_conv1])
-
-    aggregation_rnn = Bidirectional(CuDNNLSTM(CONFIG['hidden_size_aggregation'], return_sequences=False))
-
-    # Aggregation for doc1
-    aggregation_rnn_input_doc1 = Concatenate(axis=2)([q_conv1, attention_outputs])
-    aggregation_rnn_output_doc1 = aggregation_rnn(aggregation_rnn_input_doc1)
-
-
-    pool1_flat = aggregation_rnn_output_doc1
-    pool1_flat = Dense(CONFIG['dense_units'],activation='relu')(pool1_flat)
-    pool1_flat_drop = Dropout(rate=CONFIG['dropout'])(pool1_flat)
-    out_ = Dense(1,activation='sigmoid')(pool1_flat_drop)
-
-    model = Model(inputs=[query, doc], outputs=out_)
-    model.compile(optimizer='adam', loss="binary_crossentropy")
-    return model
-
-def get_model_v3(max_length=60,
-              max_vocab_size=60000,
+def get_model(max_length=50,
+              max_vocab_size=100000,
               embedding_dim=300,
               embedding_weight=None):
     
@@ -130,40 +41,36 @@ def get_model_v3(max_length=60,
     emb1 = emb_layer(seq1)
     emb2 = emb_layer(seq2)
 
-    # lstm =  Bidirectional(CuDNNLSTM(100, return_sequences=True))
-    # emb1 = lstm(emb1)
-    # emb2 = lstm(emb2)
-
     # Run through CONV + GAP layers
     conv1a = conv1(emb1)
-    glob1a = GlobalAveragePooling1D()(conv1a)
+    glob1a = GlobalMaxPooling1D()(conv1a)
     conv1b = conv1(emb2)
-    glob1b = GlobalAveragePooling1D()(conv1b)
+    glob1b = GlobalMaxPooling1D()(conv1b)
 
     conv2a = conv2(emb1)
-    glob2a = GlobalAveragePooling1D()(conv2a)
+    glob2a = GlobalMaxPooling1D()(conv2a)
     conv2b = conv2(emb2)
-    glob2b = GlobalAveragePooling1D()(conv2b)
+    glob2b = GlobalMaxPooling1D()(conv2b)
 
     conv3a = conv3(emb1)
-    glob3a = GlobalAveragePooling1D()(conv3a)
+    glob3a = GlobalMaxPooling1D()(conv3a)
     conv3b = conv3(emb2)
-    glob3b = GlobalAveragePooling1D()(conv3b)
+    glob3b = GlobalMaxPooling1D()(conv3b)
 
     conv4a = conv4(emb1)
-    glob4a = GlobalAveragePooling1D()(conv4a)
+    glob4a = GlobalMaxPooling1D()(conv4a)
     conv4b = conv4(emb2)
-    glob4b = GlobalAveragePooling1D()(conv4b)
+    glob4b = GlobalMaxPooling1D()(conv4b)
 
     conv5a = conv5(emb1)
-    glob5a = GlobalAveragePooling1D()(conv5a)
+    glob5a = GlobalMaxPooling1D()(conv5a)
     conv5b = conv5(emb2)
-    glob5b = GlobalAveragePooling1D()(conv5b)
+    glob5b = GlobalMaxPooling1D()(conv5b)
 
     conv6a = conv6(emb1)
-    glob6a = GlobalAveragePooling1D()(conv6a)
+    glob6a = GlobalMaxPooling1D()(conv6a)
     conv6b = conv6(emb2)
-    glob6b = GlobalAveragePooling1D()(conv6b)
+    glob6b = GlobalMaxPooling1D()(conv6b)
 
     mergea = Concatenate()([glob1a, glob2a, glob3a, glob4a, glob5a, glob6a])
     mergeb = Concatenate()([glob1b, glob2b, glob3b, glob4b, glob5b, glob6b])

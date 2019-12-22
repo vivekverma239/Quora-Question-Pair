@@ -20,6 +20,7 @@ class TextProcessor:
     def __init__(self, num_words=None, tokenizer=None, max_length=None):
         filters = ''
         self.tokenizer = Tokenizer(num_words=num_words, filters=filters,\
+                                oov_token="[unk]",
                                 custom_tokenizer_function=get_tokenizer(tokenizer))
         self.max_length = max_length
 
